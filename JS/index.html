@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Jack Strong – 1-plikowy trening</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#e10600">
+<!-- iOS (ikonka i tryb „na pełnym ekranie”) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="logo.png">
+<style>
+  :root{--bg:#0b0b0b;--panel:#141414;--border:#242424;--muted:#a9a9a9;--accent:#e10600;--accent2:#ff2a24;--pad:12px;--radius:14px}
+  *{box-sizing:border-box}html,body{height:100%}body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#fff;background:var(--bg)}
+  header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,#000, #0b0b0b);border-bottom:1px solid var(--border);padding:10px var(--pad)}
+  .brand{display:flex;gap:10px;align-items:center}.logo-top{height:40px;object-fit:contain}.brand h1{margin:0;font-size:18px}
+  nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  nav button{padding:10px 14px;border:1px solid var(--border);background:#111;color:#fff;border-radius:999px;cursor:pointer}
+  nav button.active{background:var(--accent);border-color:var(--accent)}
+  main{padding:var(--pad);max-width:1000px;margin:0 auto}
+  .tab{display:none}.tab.active{display:block}
+  .card,form{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:var(--pad);margin-bottom:var(--pad)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  input,select,button{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#0f0f0f;color:#fff}
+  .btn-primary{background:var(--accent);border-color:var(--accent)}.btn-primary:hover{background:var(--accent2);border-color:var(--accent2)}
+  .btn-ghost{background:#111}.badge{font-size:12px;background:var(--accent);padding:2px 8px;border-radius:999px}
+  .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#0f0f0f}
+  .hint{color:var(--muted)}
+  .set-line{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border:1px dashed var(--border);border-radius:10px;margin:6px 0;background:#0f0f0f}
+  .chart{width:100%;height:240px;background:#0f0f0f;border:1px solid var(--border);border-radius:10px;padding:8px}
+  .chart svg{width:100%;height:100%}
+  footer{padding:var(--pad);text-align:center;color:var(--muted)}
+  @media(min-width:768px){.logo-top{height:44px}}
+</style>
+</head>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').catch(function(){});
+    });
+  }
+</script>
+<body>
+<header>
+  <div class="brand">
+    <img id="logoEl" class="logo-top" alt="Jack Strong">
+    <h1>Jack Strong</h1>
+  </div>
+  <nav>
+    <button data-tab="plan" class="active">Trening</button>
+    <button data-tab="session">Aktualna sesja</button>
+    <button data-tab="library">Ćwiczenia</button>
+    <button data-tab="templates">Szablony</button>
+    <button data-tab="settings">Ustawienia</button>
+  </nav>
+</header>
+
+<main>
+  <section id="plan" class="tab active">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:end">
+        <h2 style="margin:.2rem 0 0">Z szablonu</h2>
+        <div class="row">
+          <select id="planTemplateSelect"></select>
+          <button id="startSessionBtn" class="btn-primary">Zacznij trening</button>
+        </div>
+      </div>
+      <div id="planPreview" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h2 style="margin:.2rem 0 0">Historia</h2>
+        <div class="row">
+          <select id="histExerciseFilter"><option value="">Wszystkie ćwiczenia</option></select>
+          <select id="histRangeFilter">
+            <option value="30">Ostatnie 30 dni</option>
+            <option value="90">Ostatnie 90 dni</option>
+            <option value="all">Cała historia</option>
+          </select>
+        </div>
+      </div>
+      <div class="chart" style="margin-top:10px"><svg id="progressChart" viewBox="0 0 1000 240" preserveAspectRatio="none"></svg></div>
+      <div id="historyList" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <section id="session" class="tab">
+    <div class="card">
+      <h2 style="margin:.2rem 0 0">Aktualna sesja</h2>
+      <div id="currentSession"></div>
+      <div class="row" style="margin-top:8px">
+        <span class="pill">Odpoczynek: <strong id="restLeft">0s</strong></span>
+        <button id="rest90" class="btn-ghost">Rest 90s</button>
+        <button id="rest120" class="btn-ghost">Rest 120s</button>
+        <button id="restStop" class="btn-ghost">Stop</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="library" class="tab">
+    <div class="card">
+      <h2 style="margin:.2rem 0 0">Ćwiczenia</h2>
+      <form id="exerciseForm" style="margin-top:8px">
+        <input name="name" placeholder="Nazwa (np. Przysiad)" required>
+        <input name="group" placeholder="Partia (np. Nogi)" required>
+        <label class="pill"><input type="checkbox" name="barbell"> Sztanga</label>
+        <label class="pill"><input type="checkbox" name="bw"> Masa ciała</label>
+        <label class="pill">Domyślna inkrementacja <input type="number" step="0.5" name="inc" value="2.5" style="width:90px"></label>
+        <button type="submit" class="btn-primary">Dodaj ćwiczenie</button>
+      </form>
+    </div>
+    <div id="exerciseList"></div>
+  </section>
+
+  <section id="templates" class="tab">
+    <div class="card">
+      <h2 style="margin:.2rem 0 0">Nowy szablon</h2>
+      <form id="templateForm" style="margin-top:8px">
+        <input name="name" placeholder="Nazwa szablonu (np. Trening A)" required>
+        <input name="superset" placeholder="Nazwa superserii (opcjonalnie)">
+        <div class="row">
+          <select id="tplExerciseSelect"></select>
+          <input type="number" name="sets" value="5" min="1" step="1">
+          <input type="number" name="reps" value="5" min="1" step="1">
+          <input type="number" name="inc" value="2.5" step="0.5">
+          <input type="number" name="rest" value="90" step="5">
+          <button type="button" id="addItemToTemplate" class="btn-ghost">Dodaj pozycję</button>
+        </div>
+        <div id="templateItems" style="margin-top:8px"></div>
+        <button type="submit" class="btn-primary">Zapisz szablon</button>
+      </form>
+    </div>
+    <div id="templateList"></div>
+  </section>
+
+  <section id="settings" class="tab">
+    <div class="card">
+      <h2 style="margin:.2rem 0 0">Ustawienia</h2>
+      <div class="row" style="margin-top:8px">
+        <label class="pill">Jednostki:
+          <select id="units"><option value="kg">kg</option><option value="lb">lb</option></select>
+        </label>
+        <label class="pill">Domyślna inkrementacja:
+          <input type="number" step="0.5" id="defaultInc" value="2.5" style="width:90px">
+        </label>
+      </div>
+      <hr style="border:0;height:1px;background:var(--border);margin:14px 0">
+      <div class="row">
+        <button id="exportJson" class="btn-ghost">Eksport JSON</button>
+        <input type="file" id="importJson" accept="application/json">
+        <span class="pill">Logo: <button id="loadLogoBtn" class="btn-primary">Wczytaj logo (PNG/SVG)</button></span>
+        <button id="clearLogoBtn" class="btn-ghost">Usuń logo</button>
+        <input type="file" id="logoFile" accept="image/png,image/svg+xml" style="display:none">
+      </div>
+      <p class="hint" style="margin-top:8px">Działa offline. Dane i logo są w pamięci przeglądarki (LocalStorage).</p>
+    </div>
+  </section>
+</main>
+
+<footer><small>Jack Strong • offline • 1 plik (legacy)</small></footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* Tabs (bez nowej składni) */
+  var navBtns = document.querySelectorAll("nav button");
+  for (var i=0;i<navBtns.length;i++){
+    navBtns[i].addEventListener("click", (function(btn){
+      return function(){
+        for (var j=0;j<navBtns.length;j++){ navBtns[j].classList.remove("active"); }
+        btn.classList.add("active");
+        var tabs = document.querySelectorAll(".tab");
+        for (var k=0;k<tabs.length;k++){ tabs[k].classList.remove("active"); }
+        var id = btn.getAttribute("data-tab");
+        var el = document.getElementById(id);
+        if (el) el.classList.add("active");
+      };
+    })(navBtns[i]));
+  }
+
+  /* Safe localStorage (try/catch dla iOS Private) */
+  var store = (function(){
+    try{
+      var t="__t__"; window.localStorage.setItem(t,"1"); window.localStorage.removeItem(t);
+      return window.localStorage;
+    }catch(e){
+      console.warn("LocalStorage zablokowany – działam w trybie tylko-pamięć.");
+      return {getItem:function(){return null;}, setItem:function(){}, removeItem:function(){}};
+    }
+  })();
+
+  var DB_KEY="jack_strong_v1";
+  var LOGO_KEY="jack_strong_logo_dataurl";
+
+  function seed(){
+    return {
+      units:"kg", defaultInc:2.5,
+      exercises:[
+        {id:uid(),name:"Przysiad",group:"Nogi",barbell:true,bw:false,inc:2.5},
+        {id:uid(),name:"Podciąganie",group:"Plecy",barbell:false,bw:true,inc:2.5},
+        {id:uid(),name:"OHP",group:"Barki",barbell:true,bw:false,inc:2.5},
+        {id:uid(),name:"Ściąganie drążka",group:"Plecy",barbell:false,bw:false,inc:2.5},
+        {id:uid(),name:"Martwy ciąg",group:"Plecy/Nogi",barbell:true,bw:false,inc:5.0},
+        {id:uid(),name:"Wiosłowanie sztangą",group:"Plecy",barbell:true,bw:false,inc:2.5},
+        {id:uid(),name:"Biceps",group:"Ramiona",barbell:false,bw:false,inc:2.5},
+        {id:uid(),name:"Triceps",group:"Ramiona",barbell:false,bw:false,inc:2.5},
+        {id:uid(),name:"Facepull",group:"Barki/Plecy",barbell:false,bw:false,inc:2.5},
+        {id:uid(),name:"Unoszenie hantli bokiem",group:"Barki",barbell:false,bw:false,inc:2.5}
+      ],
+      templates:[], sessions:[], lastWeights:{}
+    };
+  }
+
+  function loadDB(){
+    try{
+      var raw = store.getItem(DB_KEY);
+      return raw ? JSON.parse(raw) : seed();
+    }catch(e){ return seed(); }
+  }
+  function saveDB(){ try{ store.setItem(DB_KEY, JSON.stringify(db)); }catch(e){} }
+
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+  function parseNum(v,f){ if(v==null) return f; var x = Number(String(v).replace(",",".")); return isNaN(x)?f:x; }
+  function exById(id){ for(var i=0;i<db.exercises.length;i++){ if(db.exercises[i].id===id) return db.exercises[i]; } return null; }
+
+  var db = loadDB();
+
+  /* Logo */
+  var logoEl=document.getElementById("logoEl");
+  var dataUrl = store.getItem(LOGO_KEY);
+  if (dataUrl){ logoEl.src=dataUrl; } else { logoEl.style.display="none"; }
+  document.getElementById("loadLogoBtn").addEventListener("click",function(){ document.getElementById("logoFile").click(); });
+  document.getElementById("logoFile").addEventListener("change",function(){
+    var f=this.files && this.files[0]; if(!f) return;
+    var rd=new FileReader();
+    rd.onload=function(e){ try{ store.setItem(LOGO_KEY, e.target.result); logoEl.src=e.target.result; logoEl.style.display=""; alert("Logo zapisane."); }catch(_e){} };
+    rd.readAsDataURL(f);
+  });
+  document.getElementById("clearLogoBtn").addEventListener("click",function(){ try{ store.removeItem(LOGO_KEY); }catch(e){} logoEl.removeAttribute("src"); logoEl.style.display="none"; });
+
+  /* Ćwiczenia */
+  var exerciseForm=document.getElementById("exerciseForm");
+  var exerciseList=document.getElementById("exerciseList");
+  var tplExerciseSelect=document.getElementById("tplExerciseSelect");
+
+  exerciseForm.addEventListener("submit",function(ev){
+    ev.preventDefault();
+    var fd=new FormData(exerciseForm);
+    db.exercises.push({
+      id:uid(),
+      name:String(fd.get("name")).trim(),
+      group:String(fd.get("group")).trim(),
+      barbell:!!fd.get("barbell"),
+      bw:!!fd.get("bw"),
+      inc:parseNum(fd.get("inc"), db.defaultInc)
+    });
+    saveDB(); exerciseForm.reset(); renderExercises(); refreshPlanSelects(); renderHistoryFilters();
+  });
+
+  function renderExercises(){
+    exerciseList.innerHTML=""; tplExerciseSelect.innerHTML="";
+    var arr = db.exercises.slice().sort(function(a,b){ return a.name.localeCompare(b.name,"pl"); });
+    for (var i=0;i<arr.length;i++){
+      var e=arr[i];
+      var opt=document.createElement("option"); opt.value=e.id; opt.textContent=e.name+" ("+e.group+")"; tplExerciseSelect.appendChild(opt);
+      var card=document.createElement("div"); card.className="card";
+      card.innerHTML = '<div class="row" style="justify-content:space-between;">'
+        + '<div><strong>'+e.name+'</strong> <span class="badge">'+e.group+'</span> ' + (e.barbell?'<span class="badge">sztanga</span> ':'') + (e.bw?'<span class="badge">BW</span>':'') + '</div>'
+        + '<div class="row"><small class="hint">inc: '+e.inc+db.units+'</small><button class="btn-ghost" data-del="'+e.id+'">Usuń</button></div></div>';
+      (function(id){
+        card.querySelector('[data-del]').addEventListener("click",function(){
+          db.exercises = db.exercises.filter(function(x){ return x.id!==id; });
+          saveDB(); renderExercises(); refreshPlanSelects(); renderHistoryFilters();
+        });
+      })(e.id);
+      exerciseList.appendChild(card);
+    }
+  }
+
+  /* Szablony */
+  var templateForm=document.getElementById("templateForm");
+  var templateItems=document.getElementById("templateItems");
+  var templateList=document.getElementById("templateList");
+  var draftItems=[];
+
+  document.getElementById("addItemToTemplate").addEventListener("click",function(){
+    var fd=new FormData(templateForm); var exId=tplExerciseSelect.value; if(!exId) return;
+    draftItems.push({
+      id:uid(), exerciseId:exId,
+      sets:parseNum(fd.get("sets"),5),
+      reps:parseNum(fd.get("reps"),5),
+      inc:parseNum(fd.get("inc"), db.defaultInc),
+      rest:parseNum(fd.get("rest"),90),
+      supersetTitle:String(fd.get("superset")||"").trim(),
+      order:draftItems.length
+    });
+    renderDraftItems();
+  });
+
+  function renderDraftItems(){
+    templateItems.innerHTML="";
+    if(!draftItems.length){ templateItems.innerHTML='<p class="hint">Brak pozycji. Dodaj pierwszą.</p>'; return; }
+    draftItems.sort(function(a,b){return a.order-b.order;});
+    for (var i=0;i<draftItems.length;i++){
+      (function(it){
+        var e=exById(it.exerciseId);
+        var row=document.createElement("div"); row.className="set-line";
+        row.innerHTML='<span><strong>'+(e?e.name:"?")+'</strong> '+it.sets+'×'+it.reps+' '+(it.supersetTitle?'<span class="badge">'+it.supersetTitle+'</span>':'')+'</span>'
+          +'<span><button class="btn-ghost" data-up="'+it.id+'">↑</button><button class="btn-ghost" data-down="'+it.id+'">↓</button><button class="btn-ghost" data-del="'+it.id+'">Usuń</button></span>';
+        row.querySelector('[data-del]').addEventListener("click",function(){
+          draftItems = draftItems.filter(function(x){return x.id!==it.id;});
+          for (var k=0;k<draftItems.length;k++){ draftItems[k].order=k; }
+          renderDraftItems();
+        });
+        row.querySelector('[data-up]').addEventListener("click",function(){
+          var idx = draftItems.findIndex(function(x){return x.id===it.id;});
+          if(idx>0){ var tmp=draftItems[idx-1]; draftItems[idx-1]=draftItems[idx]; draftItems[idx]=tmp;
+            for (var k=0;k<draftItems.length;k++){ draftItems[k].order=k; } renderDraftItems(); }
+        });
+        row.querySelector('[data-down]').addEventListener("click",function(){
+          var idx = draftItems.findIndex(function(x){return x.id===it.id;});
+          if(idx<draftItems.length-1){ var tmp=draftItems[idx+1]; draftItems[idx+1]=draftItems[idx]; draftItems[idx]=tmp;
+            for (var k=0;k<draftItems.length;k++){ draftItems[k].order=k; } renderDraftItems(); }
+        });
+        templateItems.appendChild(row);
+      })(draftItems[i]);
+    }
+  }
+
+  templateForm.addEventListener("submit",function(ev){
+    ev.preventDefault(); if(!draftItems.length) return;
+    var fd=new FormData(templateForm); var name=String(fd.get("name")||"").trim();
+    db.templates.push({id:uid(), name:name, items:draftItems.slice()});
+    draftItems=[]; templateForm.reset(); saveDB(); renderTemplates(); refreshPlanSelects();
+  });
+
+  function renderTemplates(){
+    templateList.innerHTML="";
+    var arr=db.templates.slice().reverse();
+    for (var i=0;i<arr.length;i++){
+      (function(t){
+        var card=document.createElement("div"); card.className="card";
+        var items = t.items.slice().sort(function(a,b){return a.order-b.order;}).map(function(it){
+          var ex=exById(it.exerciseId); var last=getLastWeight(it.exerciseId);
+          return (ex?ex.name:"?")+" — "+it.sets+"×"+it.reps+(it.supersetTitle?(" ["+it.supersetTitle+"]"):"")+(last!=null?(" • ostatnio: "+last+db.units):"");
+        }).join("<br/>");
+        card.innerHTML='<div class="row" style="justify-content:space-between;"><strong>'+t.name+'</strong>'
+          +'<div class="row"><button class="btn-ghost" data-prev="'+t.id+'">Podgląd</button><button class="btn-ghost" data-del="'+t.id+'">Usuń</button></div></div>'
+          +'<div class="hint">'+(items||"—")+'</div>';
+        card.querySelector('[data-del]').addEventListener("click",function(){
+          db.templates = db.templates.filter(function(x){return x.id!==t.id;});
+          saveDB(); renderTemplates(); refreshPlanSelects();
+        });
+        card.querySelector('[data-prev]').addEventListener("click", function(){ selectPlan(t.id); });
+        templateList.appendChild(card);
+      })(arr[i]);
+    }
+  }
+
+  /* Plan / start session */
+  var planSelect=document.getElementById("planTemplateSelect");
+  var planPreview=document.getElementById("planPreview");
+  function refreshPlanSelects(){
+    planSelect.innerHTML="";
+    for (var i=0;i<db.templates.length;i++){
+      var t=db.templates[i]; var opt=document.createElement("option"); opt.value=t.id; opt.textContent=t.name; planSelect.appendChild(opt);
+    }
+  }
+  function selectPlan(id){ if(planSelect){ planSelect.value=id; renderPlanPreview(); } }
+  planSelect.addEventListener("change", renderPlanPreview);
+
+  function renderPlanPreview(){
+    var t=null; for(var i=0;i<db.templates.length;i++){ if(db.templates[i].id===planSelect.value){ t=db.templates[i]; break; } }
+    if(!t){ planPreview.innerHTML='<p class="hint">Wybierz szablon…</p>'; return; }
+    var html="";
+    var items=t.items.slice().sort(function(a,b){return a.order-b.order;});
+    for (var i=0;i<items.length;i++){
+      var it=items[i], ex=exById(it.exerciseId), last=getLastWeight(it.exerciseId);
+      html+='<div class="set-line"><span><strong>'+(ex?ex.name:"?")+'</strong> '+it.sets+'×'+it.reps+'</span>'
+           +'<span>'+(it.supersetTitle?('Superset: '+it.supersetTitle+' '):'')+(last!=null?(' <span class="pill">ostatnio: <b>'+last+db.units+'</b></span>'):'')+'</span></div>';
+    }
+    planPreview.innerHTML = html || '<p class="hint">Brak pozycji.</p>';
+  }
+
+  document.getElementById("startSessionBtn").addEventListener("click", function(){
+    var t=null; for(var i=0;i<db.templates.length;i++){ if(db.templates[i].id===planSelect.value){ t=db.templates[i]; break; } }
+    if(!t) return;
+    var sets=[];
+    var items=t.items.slice().sort(function(a,b){return a.order-b.order;});
+    for (var k=0;k<items.length;k++){
+      var it=items[k]; var last=getLastWeight(it.exerciseId);
+      for (var s=1;s<=it.sets;s++){
+        sets.push({id:uid(),exerciseId:it.exerciseId,setIndex:s,repsTarget:it.reps,weight:null,weightHint:(last!=null?last:null),
+          supersetTitle:(it.supersetTitle||""),rest:it.rest,repsActual:null,doneAt:null});
+      }
+    }
+    var session={id:uid(),date:new Date().toISOString(),status:"inProgress",sets:sets};
+    db.sessions.unshift(session); saveDB(); renderSession(); renderHistory(); switchTab("session");
+  });
+
+  function switchTab(id){
+    var btn = document.querySelector('nav button[data-tab="'+id+'"]');
+    if(btn) btn.click();
+  }
+
+  /* Sesja */
+  var currentSessionDiv=document.getElementById("currentSession");
+  function renderSession(){
+    var s=null; for(var i=0;i<db.sessions.length;i++){ if(db.sessions[i].status!=="completed"){ s=db.sessions[i]; break; } }
+    if(!s){ currentSessionDiv.innerHTML='<p class="hint">Brak aktywnej sesji.</p>'; return; }
+    var html='<p><strong>'+new Date(s.date).toLocaleString()+'</strong></p>';
+    for (var i=0;i<s.sets.length;i++){
+      (function(idx,set){
+        var e=exById(set.exerciseId), done=(set.repsActual!=null);
+        var weightVal=(set.weight!=null?set.weight:""); var hint=(set.weight==null && set.weightHint!=null)?String(set.weightHint):"";
+        html+='<div class="set-line"><span>'+(set.supersetTitle?('<span class="badge">'+set.supersetTitle+'</span> '):'')
+             +'<strong>'+(e?e.name:"?")+'</strong> — seria '+set.setIndex+' (cel '+set.repsTarget+' powt.)</span>'
+             +'<span class="row" style="min-width:360px;justify-content:flex-end">'
+             +'<input data-w="'+idx+'" type="number" step="0.5" style="width:100px" value="'+weightVal+'" placeholder="'+hint+'">';
+        if(!done){
+          html+='<button data-dec="'+idx+'" class="btn-ghost">-1 rep</button><button data-inc="'+idx+'" class="btn-ghost">+1 rep</button><button data-done="'+idx+'" class="btn-primary">Zrobione</button>';
+        }else{
+          html+='<em class="hint"> ✓ '+set.repsActual+' powt. @ '+(set.weight!=null?set.weight:(set.weightHint!=null?set.weightHint:"?"))+db.units+'</em>';
+        }
+        html+='</span></div>';
+      })(i,s.sets[i]);
+    }
+    html+='<div class="row"><button id="finishSession" class="btn-primary">Zakończ sesję</button></div>';
+    currentSessionDiv.innerHTML=html;
+
+    // hooki
+    for (var i=0;i<s.sets.length;i++){
+      (function(idx,set){
+        var w=currentSessionDiv.querySelector('[data-w="'+idx+'"]');
+        if(w){ w.addEventListener("input",function(){ var v=w.value.replace(",","."); set.weight=(v===""?null:Number(v)); saveDB(); }); }
+        var dec=currentSessionDiv.querySelector('[data-dec="'+idx+'"]');
+        var inc=currentSessionDiv.querySelector('[data-inc="'+idx+'"]');
+        var done=currentSessionDiv.querySelector('[data-done="'+idx+'"]');
+        if(dec) dec.addEventListener("click",function(){ adjustReps(s,set,-1); });
+        if(inc) inc.addEventListener("click",function(){ adjustReps(s,set,+1); });
+        if(done) done.addEventListener("click",function(){ completeSet(s,set,w); });
+      })(i,s.sets[i]);
+    }
+    var fin=document.getElementById("finishSession");
+    fin.addEventListener("click",function(){
+      s.status="completed"; saveDB(); updateLastWeightsFromSession(s);
+      renderSession(); renderHistory(); renderTemplates(); renderPlanPreview(); drawChart();
+    });
+  }
+  function adjustReps(session,set,delta){ var cur=(set.repsActual!=null?set.repsActual:0); set.repsActual=Math.max(0,cur+delta); saveDB(); renderSession(); }
+  function completeSet(session,set,w){
+    if(set.weight==null){ var hint=set.weightHint; if(w && w.value==="" && hint!=null){ set.weight=Number(hint); } }
+    if(set.weight==null){ alert("Podaj ciężar (np. 22.5)."); if(w) w.focus(); return; }
+    if(set.repsActual==null) set.repsActual=set.repsTarget; set.doneAt=new Date().toISOString(); saveDB(); startRest(set.rest||90); renderSession();
+  }
+  function updateLastWeightsFromSession(session){
+    var byEx={}; for(var i=0;i<session.sets.length;i++){ var st=session.sets[i]; if(st.weight!=null) byEx[st.exerciseId]=st.weight; }
+    for (var k in byEx){ db.lastWeights[k]=byEx[k]; } saveDB();
+  }
+  function getLastWeight(exId){
+    for (var s=0;s<db.sessions.length;s++){
+      var sess=db.sessions[s]; if(sess.status!=="completed") continue;
+      for (var i=sess.sets.length-1;i>=0;i--){ var st=sess.sets[i]; if(st.exerciseId===exId && st.weight!=null) return st.weight; }
+    }
+    return db.lastWeights[exId]!=null?db.lastWeights[exId]:null;
+  }
+
+  /* Timer */
+  var restEl=document.getElementById("restLeft"); var restTimer=null, restLeft=0;
+  document.getElementById("rest90").addEventListener("click",function(){ startRest(90); });
+  document.getElementById("rest120").addEventListener("click",function(){ startRest(120); });
+  document.getElementById("restStop").addEventListener("click",stopRest);
+  function startRest(s){ restLeft=s; updateRest(); stopRest(); restTimer=setInterval(function(){ restLeft--; updateRest(); if(restLeft<=0) stopRest(); },1000); }
+  function stopRest(){ if(restTimer){ clearInterval(restTimer); restTimer=null; } }
+  function updateRest(){ restEl.textContent = (restLeft>0?restLeft:0) + "s"; }
+
+  /* Historia + wykres */
+  var histExerciseFilter=document.getElementById("histExerciseFilter");
+  var histRangeFilter=document.getElementById("histRangeFilter");
+  var historyList=document.getElementById("historyList");
+  var progressChart=document.getElementById("progressChart");
+
+  histExerciseFilter.addEventListener("change", function(){ renderHistory(); drawChart(); });
+  histRangeFilter.addEventListener("change", function(){ renderHistory(); drawChart(); });
+
+  function renderHistoryFilters(){
+    histExerciseFilter.innerHTML = "<option value=''>Wszystkie ćwiczenia</option>";
+    var seen={};
+    for (var s=0;s<db.sessions.length;s++){ for (var i=0;i<db.sessions[s].sets.length;i++){ seen[db.sessions[s].sets[i].exerciseId]=true; } }
+    for (var t=0;t<db.templates.length;t++){ for (var j=0;j<db.templates[t].items.length;j++){ seen[db.templates[t].items[j].exerciseId]=true; } }
+    for (var id in seen){ var ex=exById(id); var opt=document.createElement("option"); opt.value=id; opt.textContent=(ex?ex.name:"Ćwiczenie"); histExerciseFilter.appendChild(opt); }
+  }
+  function daysSince(d){ var x=new Date(d); var now=new Date(); return Math.floor((now-x)/(1000*60*60*24)); }
+  function inRange(days, r){ if(r==="all") return true; var lim=Number(r)||30; return days<=lim; }
+
+  function renderHistory(){
+    historyList.innerHTML="";
+    var completed=db.sessions.filter(function(s){return s.status==="completed";});
+    var exF=histExerciseFilter.value||""; var rF=histRangeFilter.value||"30";
+    var filtered = completed.filter(function(s){ return inRange(daysSince(s.date), rF) && (!exF || s.sets.some(function(st){return st.exerciseId===exF;})); });
+    if(!filtered.length){ historyList.innerHTML='<div class="hint">Brak zakończonych sesji.</div>'; return; }
+    for (var k=0;k<filtered.length && k<20;k++){
+      var s=filtered[k]; var card=document.createElement("div"); card.className="card";
+      var map={}; for (var i=0;i<s.sets.length;i++){ var st=s.sets[i];
+        if(st.weight!=null && (!exF || st.exerciseId===exF)){ var prev=map[st.exerciseId]; if(!prev || st.setIndex>prev.setIndex) map[st.exerciseId]=st; }
+      }
+      var lines=""; for (var id in map){ var set=map[id], ex=exById(id);
+        lines+='<div class="set-line"><span><strong>'+(ex?ex.name:"?")+'</strong></span><span>'+(set.repsActual!=null?set.repsActual:set.repsTarget)+' powt. @ <b>'+set.weight+db.units+'</b></span></div>';
+      }
+      card.innerHTML='<div class="row" style="justify-content:space-between;"><strong>'+new Date(s.date).toLocaleString()+'</strong><span class="pill">'+s.sets.length+' serii</span></div>'+ (lines||'<div class="hint">Brak ciężarów.</div>');
+      historyList.appendChild(card);
+    }
+  }
+
+  function drawChart(){
+    progressChart.innerHTML="";
+    var exF=histExerciseFilter.value||"";
+    if(!exF){ progressChart.innerHTML='<text x="20" y="30" fill="#aaa" font-size="14">Wybierz ćwiczenie powyżej.</text>'; return; }
+    var pts=[];
+    for (var s=0;s<db.sessions.length;s++){
+      var sess=db.sessions[s]; if(sess.status!=="completed") continue;
+      var last=null;
+      for (var i=0;i<sess.sets.length;i++){ var st=sess.sets[i]; if(st.exerciseId===exF && st.weight!=null){ if(!last || st.setIndex>last.setIndex) last=st; } }
+      if(last) pts.push({t:new Date(sess.date).getTime(), w:last.weight});
+    }
+    if(!pts.length){ progressChart.innerHTML='<text x="20" y="30" fill="#aaa" font-size="14">Brak danych.</text>'; return; }
+    pts.sort(function(a,b){return a.t-b.t;});
+    var W=1000,H=240,P=40;
+    var minW=pts[0].w, maxW=pts[0].w;
+    for (var i=1;i<pts.length;i++){ if(pts[i].w<minW)minW=pts[i].w; if(pts[i].w>maxW)maxW=pts[i].w; }
+    var pad=(maxW-minW)<1?1:(maxW-minW)*0.1;
+    var yMin=minW-pad, yMax=maxW+pad;
+    var tMin=pts[0].t, tMax=pts[pts.length-1].t;
+    function X(t){ return P+((t-tMin)/(tMax-tMin||1))*(W-2*P); }
+    function Y(v){ return (H-P)-((v-yMin)/(yMax-yMin||1))*(H-2*P); }
+    var grid=""; for(var g=0;g<=5;g++){ var gy=Y(yMin+g*(yMax-yMin)/5).toFixed(1); grid+='<line x1="'+P+'" y1="'+gy+'" x2="'+(W-P)+'" y2="'+gy+'" stroke="#222"/>'; }
+    var d=""; for (var i=0;i<pts.length;i++){ d+=(i===0?"M":"L")+" "+X(pts[i].t).toFixed(1)+" "+Y(pts[i].w).toFixed(1)+" "; }
+    var dots=""; for (var i=0;i<pts.length;i++){ dots+='<circle cx="'+X(pts[i].t).toFixed(1)+'" cy="'+Y(pts[i].w).toFixed(1)+'" r="3" fill="#ff2a24"><title>'+new Date(pts[i].t).toLocaleDateString()+' — '+pts[i].w+db.units+'</title></circle>'; }
+    progressChart.innerHTML='<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="transparent"/>'+grid+'<path d="'+d+'" fill="none" stroke="#e10600" stroke-width="2"/>'+dots
+      +'<text x="'+P+'" y="18" fill="#aaa" font-size="12">'+(exById(exF)?exById(exF).name:"")+'</text>'
+      +'<text x="'+(W-P)+'" y="'+(H-10)+'" fill="#aaa" font-size="12" text-anchor="end">'+new Date(tMin).toLocaleDateString()+' — '+new Date(tMax).toLocaleDateString()+'</text>';
+  }
+
+  /* Settings / import-export */
+  var unitsSel=document.getElementById("units");
+  var defInc=document.getElementById("defaultInc");
+  var exportBtn=document.getElementById("exportJson");
+  var importInp=document.getElementById("importJson");
+
+  unitsSel.addEventListener("change", function(){ db.units=unitsSel.value; saveDB(); renderAll(); });
+  defInc.addEventListener("change", function(){ db.defaultInc=parseNum(defInc.value,2.5); saveDB(); });
+
+  exportBtn.addEventListener("click", function(){
+    try{
+      var blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
+      var url=URL.createObjectURL(blob); var a=document.createElement("a"); a.href=url; a.download="jack_strong_backup.json"; a.click(); URL.revokeObjectURL(url);
+    }catch(e){ alert("Eksport nieobsługiwany przez tę przeglądarkę."); }
+  });
+
+  importInp.addEventListener("change", function(e){
+    var f=e.target.files && e.target.files[0]; if(!f) return;
+    var rd=new FileReader();
+    rd.onload=function(x){
+      try{ var data=JSON.parse(x.target.result); store.setItem(DB_KEY, JSON.stringify(data)); for (var k in data){ db[k]=data[k]; } renderAll(); alert("Zaimportowano dane."); }
+      catch(_e){ alert("Błędny plik JSON."); }
+    };
+    rd.readAsText(f);
+  });
+
+  function renderSettings(){ unitsSel.value=db.units; defInc.value=db.defaultInc; }
+  function renderAll(){ renderExercises(); renderTemplates(); refreshPlanSelects(); renderPlanPreview(); renderSession(); renderSettings(); renderHistoryFilters(); renderHistory(); drawChart(); }
+  renderAll();
+
+})();
+</script>
+</body>
+</html>
