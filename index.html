@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Jack Strong – 1-plikowy trening</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#e10600">
@@ -31,6 +31,37 @@
   .chart svg{width:100%;height:100%}
   footer{padding:var(--pad);text-align:center;color:var(--muted)}
   @media(min-width:768px){.logo-top{height:44px}}
+  /* iPhone z notchem – bezpieczne marginesy */
+@supports (padding: env(safe-area-inset-top)) {
+  header { padding-top: calc(10px + env(safe-area-inset-top)); }
+  body   { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* iOS nie będzie robił auto-zoomu na inputach */
+input, select, button { font-size: 16px; }
+
+/* Nie wymuszaj szerokości w wierszu kontrolek serii */
+.set-line .row { min-width: 0; }
+
+/* Uporządkowanie układu na telefonie */
+@media (max-width: 640px) {
+  :root { --pad: 10px; }
+  nav button { padding: 8px 12px; font-size: 14px; }
+  .card, form { padding: 12px; }
+  .badge { font-size: 11px; padding: 2px 6px; }
+
+  .set-line {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px;
+  }
+  .set-line input[type="number"] { width: 88px; }
+  .set-line .row { flex-wrap: wrap; gap: 6px; justify-content: flex-start; }
+
+  .btn-ghost, .btn-primary { padding: 8px 10px; }
+}
+
 </style>
 </head>
 <script>
@@ -417,7 +448,8 @@
         var weightVal=(set.weight!=null?set.weight:""); var hint=(set.weight==null && set.weightHint!=null)?String(set.weightHint):"";
         html+='<div class="set-line"><span>'+(set.supersetTitle?('<span class="badge">'+set.supersetTitle+'</span> '):'')
              +'<strong>'+(e?e.name:"?")+'</strong> — seria '+set.setIndex+' (cel '+set.repsTarget+' powt.)</span>'
-             +'<span class="row" style="min-width:360px;justify-content:flex-end">'
+             +'<span class="row" style="<span class="row" style="min-width:0; justify-content:flex-end; flex-wrap:wrap;">
+;justify-content:flex-end">'
              +'<input data-w="'+idx+'" type="number" step="0.5" style="width:100px" value="'+weightVal+'" placeholder="'+hint+'">';
         if(!done){
           html+='<button data-dec="'+idx+'" class="btn-ghost">-1 rep</button><button data-inc="'+idx+'" class="btn-ghost">+1 rep</button><button data-done="'+idx+'" class="btn-primary">Zrobione</button>';
