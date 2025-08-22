@@ -1,4 +1,4 @@
-const CACHE = 'jack-strong-v1';
+const CACHE = 'jack-strong-v2';
 const ASSETS = ['./','./index.html','./manifest.webmanifest','./logo.png'];
 
 self.addEventListener('install', e=>{
